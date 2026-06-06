@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hercules Cloud Console - Secure Access</title>
+    <title>SA ALONE</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background-color: #0b0f19; color: #f1f5f9; padding: 2rem; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
@@ -83,7 +83,7 @@
 </div>
 
 <script>
-    let sessionToken = null; // سيتم تعبئته عند نجاح تسجيل الدخول من السيرفر
+    let sessionToken = null;
 
     async function checkLogin() {
         const u = document.getElementById('username').value;
@@ -98,7 +98,7 @@
 
         const result = await response.json();
         if(result.success) {
-            sessionToken = result.token; // حفظ توكن الجلسة المشفرة
+            sessionToken = result.token; 
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('dashboardScreen').style.display = 'block';
             document.body.style.alignItems = 'flex-start';
@@ -139,23 +139,22 @@
                 
                 const generatedLua = `local HttpService = game:GetService("HttpService")
 
--- إعدادات العميل الخاصة بك
 local LicenseKey = "${key}"
 local HardwareID = "${hwid}"
 local CloudUrl = "${currentUrl}/api/obfuscate?fetch=" .. LicenseKey
 
--- 1. نظام الحماية الذاتية المتقدم (Anti-Logger & Anti-Hooking Environment)
+
 local function secureRAM()
     local dangerous_globals = {"getgc", "getprotos", "getregistry", "saveinstance", "setupvalue"}
     for _, name in ipairs(dangerous_globals) do
         if getfenv()[name] then 
-            getfenv()[name] = nil -- حذف الدوال لمنع الـ Loggers المحترفة من قراءة الذاكرة العشوائية
+            getfenv()[name] = nil 
         end
     end
 end
 secureRAM()
 
--- 2. إرسال طلب الحزمة المتزامنة مع وقت السيرفر بالملي ثانية
+
 local Timestamp = tostring(os.time() * 1000)
 
 local success, response = pcall(function()
@@ -173,22 +172,19 @@ if success and response then
     local result = HttpService:JSONDecode(response)
     if result.success then
         
-        -- [ ميكانيكية فك تشفير الـ Payload التلقائي داخل الذاكرة ]
-        -- هنا يتم استلام الكود وفكه بالاعتماد على مفتاح الجلسة المتغير ويمرر فوراً للمحرك
+        
         
         local hercules_core_run = loadstring(decrypted_payload)
         
-        -- 3. التدمير الذاتي الفوري للمتغيرات النصية لمنع تصوير الذاكرة (Anti-Memory Dump)
+       
         decrypted_payload = nil
         result = nil
         collectgarbage("collect")
         
         hercules_core_run()
     else
-        warn("🔒 فشل التحقق: " .. tostring(result.error))
     end
 else
-    error("🛡️ تم حظر محاولة الوصول للشبكة أو تسجيل البيانات!")
 end`;
                 document.getElementById('finalLuaScript').innerText = generatedLua;
             }
