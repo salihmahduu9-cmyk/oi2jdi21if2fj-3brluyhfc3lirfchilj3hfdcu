@@ -50,11 +50,11 @@
     <div class="grid">
         <div>
             <label>مفتاح التحقق للسكربت</label>
-            <input type="text" id="scriptKey" placeholder="مثال: PremiumKey99">
+            <input type="text" id="scriptKey" placeholder="مثال: saalone">
         </div>
         <div>
             <label>بصمة السكربت</label>
-            <input type="text" id="userHWID" placeholder="أدخل الـ HWID المسموح له">
+            <input type="text" id="userHWID" placeholder="أدخل الـ HWID (اختياري)">
         </div>
     </div>
 
@@ -71,12 +71,12 @@
     </div>
 
     <div class="btn-group">
-        <button class="btn-primary" onclick="uploadAndObfuscate(false)">تشفير وحماية الشبكة الكاملة</button>
-        <button class="btn-secondary" onclick="uploadAndObfuscate(true)">تشفير Raw (بدون حماية الشبكة)</button>
+        <button class="btn-primary" onclick="uploadAndObfuscate(false)">تشفير وتشغيل مباشر (بدون حماية)</button>
+        <button class="btn-secondary" onclick="uploadAndObfuscate(true)">تشفير Raw (رابط مباشر)</button>
     </div>
 
     <div class="result-box" id="resultBox">
-        <h3 id="resultTitle" style="color: #34d399;">🔒 تم تأمين الكود بالكامل بنظام التشفير المتغير وجدار حماية الشبكة!</h3>
+        <h3 id="resultTitle" style="color: #34d399;">🔒 كود الجلب والتشغيل الجاهز:</h3>
         <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #a7f3d0;">النتيجة المستخرجة:</p>
         <div class="code-output" id="finalLuaScript"></div>
     </div>
@@ -109,16 +109,14 @@
 
     async function uploadAndObfuscate(isRawMode) {
         const key = document.getElementById('scriptKey').value;
-        const hwid = document.getElementById('userHWID').value;
         const code = document.getElementById('scriptCode').value;
         
         if (!key || !code) { alert('الرجاء إدخال المفتاح والكود المصدري على الأقل!'); return; }
-        if (!isRawMode && !hwid) { alert('الرجاء إدخال بصمة الجهاز (HWID) للوضع المحمي!'); return; }
 
         const response = await fetch('/api/obfuscate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'obfuscate', token: sessionToken, key, hwid, code, isRaw: isRawMode })
+            body: JSON.stringify({ action: 'obfuscate', token: sessionToken, key, code, isRaw: isRawMode })
         });
 
         const result = await response.json();
@@ -126,13 +124,13 @@
             const currentUrl = window.location.origin;
             
             if (isRawMode) {
-                document.getElementById('resultTitle').innerText = "🔗 تم تشفير السكربت بنجاح! إليك رابط الـ Raw المباشر والمحمي:";
+                document.getElementById('resultTitle').innerText = "🔗 تم تشفير السكربت بنجاح! إليك رابط الـ Raw المباشر:";
                 document.getElementById('resultTitle').style.color = "#60a5fa";
                 document.getElementById('resultBox').style.backgroundColor = "#1e3a8a";
                 document.getElementById('resultBox').style.borderColor = "#3b82f6";
                 document.getElementById('finalLuaScript').innerText = `${currentUrl}/api/obfuscate?fetch=${key}&raw=true`;
             } else {
-                document.getElementById('resultTitle').innerText = "🔒 تم تأمين الكود بالكامل بنظام التشفير المتغير وجدار حماية الشبكة!";
+                document.getElementById('resultTitle').innerText = "🔓 كود الجلب والتشغيل الجاهز (بدون حماية الحظر وبصمة الجهاز):";
                 document.getElementById('resultTitle').style.color = "#34d399";
                 document.getElementById('resultBox').style.backgroundColor = "#022c22";
                 document.getElementById('resultBox').style.borderColor = "#059669";
@@ -140,27 +138,12 @@
                 const generatedLua = `local HttpService = game:GetService("HttpService")
 
 local LicenseKey = "${key}"
-local HardwareID = "${hwid}"
 local CloudUrl = "${currentUrl}/api/obfuscate?fetch=" .. LicenseKey
-
-local function secureRAM()
-    local dangerous_globals = {"getgc", "getprotos", "getregistry", "saveinstance", "setupvalue"}
-    for _, name in ipairs(dangerous_globals) do
-        if getfenv()[name] then 
-            getfenv()[name] = nil
-        end
-    end
-end
-secureRAM()
-
-local Timestamp = tostring(os.time() * 1000)
 
 local success, response = pcall(function()
     return HttpService:PostAsync(CloudUrl, 
         HttpService:JSONEncode({
-            key = LicenseKey,
-            hwid = HardwareID,
-            timestamp = Timestamp
+            key = LicenseKey
         }),
         Enum.HttpContentType.ApplicationJson
     )
@@ -169,19 +152,16 @@ end)
 if success and response then
     local result = HttpService:JSONDecode(response)
     if result.success then
-        
         local hercules_core_run = loadstring(decrypted_payload)
-        
         decrypted_payload = nil
         result = nil
         collectgarbage("collect")
-        
         hercules_core_run()
     else
-        warn("🔒 فشل التحقق: " .. tostring(result.error))
+        warn("فشل التحقق: " .. tostring(result.error))
     end
 else
-    error("🛡️ تم حظر محاولة الوصول للشبكة أو تسجيل البيانات!")
+    error("خطأ أثناء الاتصال بالخادم!")
 end`;
                 document.getElementById('finalLuaScript').innerText = generatedLua;
             }
