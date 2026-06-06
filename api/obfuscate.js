@@ -2,8 +2,8 @@ import crypto from 'crypto';
 
 global.herculesSessions = global.herculesSessions || {};
 
-const SECURE_USER = "admin";
-const SECURE_PASS = "hercules2026";
+const SECURE_USER = "بقشف";
+const SECURE_PASS = "بقشف";
 
 export default function handler(req, res) {
     if (req.method === 'POST') {
@@ -16,14 +16,14 @@ export default function handler(req, res) {
                 global.herculesSessions[token] = true;
                 return res.status(200).json({ success: true, token });
             }
-            return res.status(401).json({ success: false, error: "" });
+            return res.status(401).json({ success: false, error: "Invalid credentials" });
         }
 
         if (action === 'obfuscate') {
             const { token, code } = req.body;
             
             if (!token || !global.herculesSessions[token]) {
-                return res.status(403).json({ error: "السكربت معطل" });
+                return res.status(403).json({ error: "🛡️ Session expired or unauthorized." });
             }
             if (!code) return res.status(400).json({ error: "Code is missing" });
 
@@ -34,8 +34,14 @@ export default function handler(req, res) {
                 payload: encryptedPayload
             });
         }
+
+        if (req.body.key) {
+            return res.status(200).json({
+                success: true
+            });
+        }
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.status(403).send('<h2 style="color:red; text-align:center; margin-top:50px;">تبي تفك حاول هههههههههههههههههههههههه</h2>');
+    return res.status(403).send('<h2 style="color:red; text-align:center; margin-top:50px;">🛡️ جدار حماية Hercules نشط</h2>');
 }
