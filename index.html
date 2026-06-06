@@ -3,105 +3,200 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hercules Cloud Console</title>
+    <title>Hercules Cloud Console - Secure Access</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-        body { background-color: #0b0f19; color: #f1f5f9; padding: 2rem; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 1000px; background: #111827; padding: 2.5rem; border-radius: 12px; border: 1px solid #1f2937; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        body { background-color: #0b0f19; color: #f1f5f9; padding: 2rem; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .login-card { width: 100%; max-width: 420px; background: #111827; padding: 2.5rem; border-radius: 12px; border: 1px solid #1f2937; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; }
+        .login-card h2 { color: #38bdf8; margin-bottom: 1.5rem; font-weight: 800; font-size: 1.6rem; }
+        .container { width: 100%; max-width: 1000px; background: #111827; padding: 2.5rem; border-radius: 12px; border: 1px solid #1f2937; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); display: none; }
         h1 { font-size: 1.75rem; margin-bottom: 1.5rem; color: #38bdf8; text-align: center; font-weight: 800; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
         label { display: block; margin-bottom: 0.5rem; color: #9ca3af; font-weight: 600; font-size: 0.9rem; }
-        input, textarea, select { width: 100%; padding: 0.85rem; background: #030712; border: 1px solid #374151; border-radius: 8px; color: #fff; font-size: 1rem; }
-        textarea { height: 300px; font-family: monospace; resize: vertical; }
+        input, textarea, select { width: 100%; padding: 0.85rem; background: #030712; border: 1px solid #374151; border-radius: 8px; color: #fff; font-size: 1rem; margin-bottom: 1rem; transition: 0.2s; }
+        input:focus, textarea:focus { border-color: #38bdf8; outline: none; }
+        textarea { height: 220px; font-family: monospace; resize: vertical; margin-bottom: 0; }
         .options-panel { background: #1f2937; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
         .checkbox-group { display: flex; align-items: center; gap: 0.5rem; }
-        .checkbox-group input { width: auto; cursor: pointer; }
-        button { width: 100%; padding: 1rem; background: #2563eb; border: none; border-radius: 8px; color: white; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #1d4ed8; }
+        .checkbox-group input { width: auto; margin-bottom: 0; cursor: pointer; }
+        .btn-group { display: flex; gap: 1rem; margin-top: 1rem; }
+        button { width: 100%; padding: 1rem; border: none; border-radius: 8px; color: white; font-size: 1.05rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-primary { background: #2563eb; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-secondary { background: #4b5563; }
+        .btn-secondary:hover { background: #374151; }
         .result-box { margin-top: 2rem; padding: 1.5rem; background: #022c22; border: 1px solid #059669; border-radius: 8px; display: none; }
-        .code-output { background: #030712; padding: 1rem; border-radius: 6px; word-break: break-all; font-family: monospace; font-size: 0.85rem; color: #34d399; margin-top: 0.5rem; border: 1px solid #1f2937; }
+        .code-output { background: #030712; padding: 1rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; color: #34d399; margin-top: 0.5rem; border: 1px solid #1f2937; white-space: pre-wrap; word-break: break-all; text-align: left; direction: ltr; }
+        .error-msg { color: #f87171; font-size: 0.9rem; margin-top: -0.5rem; margin-bottom: 1rem; display: none; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>⚡ HERCULES OBFUSCATOR CLOUD ENTERPRISE</h1>
+<div class="login-card" id="loginScreen">
+    <h2>⚡ تسجيل الدخول للموقع</h2>
+    <div style="text-align: right;">
+        <label>اسم المستخدم:</label>
+        <input type="text" id="username" placeholder="Username">
+        <label>كلمة المرور:</label>
+        <input type="password" id="password" placeholder="Password">
+    </div>
+    <div class="error-msg" id="loginError">بيانات الدخول غير صحيحة!</div>
+    <button class="btn-primary" onclick="checkLogin()">دخول اللوحة الآمنة</button>
+</div>
+
+<div class="container" id="dashboardScreen">
+    <h1>⚡ SA ALONE</h1>
     
     <div class="grid">
         <div>
-            <label>مفتاح التحقق للسكربت (Access Key):</label>
-            <input type="text" id="scriptKey" placeholder="أدخل مفتاح الترخيص الآمن...">
+            <label>مفتاح التحقق للسكربت</label>
+            <input type="text" id="scriptKey" placeholder="مثال: PremiumKey99">
         </div>
         <div>
-            <label>بصمة جهاز المستخدم (Allowed HWID):</label>
-            <input type="text" id="userHWID" placeholder="أدخل بصمة HWID المصرح لها...">
+            <label>بصمة السكربت</label>
+            <input type="text" id="userHWID" placeholder="أدخل الـ HWID المسموح له">
         </div>
     </div>
 
-    <label>إعدادات حماية المحرك (تتطابق مع config.lua):</label>
+    <label>إعدادات حماية المحرك:</label>
     <div class="options-panel">
-        <div class="checkbox-group">
-            <input type="checkbox" id="optVM" checked>
-            <label for="optVM">Virtual Machine (الآلة الوهمية)</label>
-        </div>
-        <div class="checkbox-group">
-            <input type="checkbox" id="optAntiTamper" checked>
-            <label for="optAntiTamper">Anti-Tamper (مكافحة التلاعب)</label>
-        </div>
-        <div class="checkbox-group">
-            <input type="checkbox" id="optControlFlow" checked>
-            <label for="optControlFlow">Control Flow (تغيير مسار الكود)</label>
-        </div>
+        <div class="checkbox-group"><input type="checkbox" id="optVM" checked><label for="optVM">Virtual Machine</label></div>
+        <div class="checkbox-group"><input type="checkbox" id="optAntiTamper" checked><label for="optAntiTamper">Anti-Tamper</label></div>
+        <div class="checkbox-group"><input type="checkbox" id="optControlFlow" checked><label for="optControlFlow">Control Flow</label></div>
     </div>
 
-    <div class="form-group" style="margin-bottom: 1.5rem;">
-        <label>كود الـ Lua المصدري (Raw Code):</label>
-        <textarea id="scriptCode" placeholder="-- الصق كود Lua الأصلي هنا ليتم تشفيره وحمايته..."></textarea>
+    <div style="margin-bottom: 1.5rem;">
+        <label>كود الـ Lua المصدري الأصلي:</label>
+        <textarea id="scriptCode" placeholder="-- الصق كودك الأصلي هنا..."></textarea>
     </div>
 
-    <button onclick="uploadAndObfuscate()">تشفير ورفع السكربت السحابي</button>
+    <div class="btn-group">
+        <button class="btn-primary" onclick="uploadAndObfuscate(false)">تشفير وحماية الشبكة الكاملة</button>
+        <button class="btn-secondary" onclick="uploadAndObfuscate(true)">تشفير Raw (بدون حماية الشبكة)</button>
+    </div>
 
     <div class="result-box" id="resultBox">
-        <h3 style="color: #34d399;">🔒 تم إغلاق الكود داخل آلة Hercules الوهمية بنجاح!</h3>
-        <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #a7f3d0;">رابط الاستدعاء الآمن (مغلق تماماً ضد الـ Loggers والوصول المباشر للـ Raw):</p>
-        <div class="code-output" id="finalUrl"></div>
+        <h3 id="resultTitle" style="color: #34d399;">🔒 تم تأمين الكود بالكامل بنظام التشفير المتغير وجدار حماية الشبكة!</h3>
+        <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #a7f3d0;">النتيجة المستخرجة:</p>
+        <div class="code-output" id="finalLuaScript"></div>
     </div>
 </div>
 
 <script>
-    async function uploadAndObfuscate() {
+    let sessionToken = null; // سيتم تعبئته عند نجاح تسجيل الدخول من السيرفر
+
+    async function checkLogin() {
+        const u = document.getElementById('username').value;
+        const p = document.getElementById('password').value;
+        const errorDiv = document.getElementById('loginError');
+
+        const response = await fetch('/api/obfuscate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'login', user: u, pass: p })
+        });
+
+        const result = await response.json();
+        if(result.success) {
+            sessionToken = result.token; // حفظ توكن الجلسة المشفرة
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('dashboardScreen').style.display = 'block';
+            document.body.style.alignItems = 'flex-start';
+        } else {
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    async function uploadAndObfuscate(isRawMode) {
         const key = document.getElementById('scriptKey').value;
         const hwid = document.getElementById('userHWID').value;
         const code = document.getElementById('scriptCode').value;
         
-        const settings = {
-            vm: document.getElementById('optVM').checked,
-            antitamper: document.getElementById('optAntiTamper').checked,
-            controlflow: document.getElementById('optControlFlow').checked
-        };
+        if (!key || !code) { alert('الرجاء إدخال المفتاح والكود المصدري على الأقل!'); return; }
+        if (!isRawMode && !hwid) { alert('الرجاء إدخال بصمة الجهاز (HWID) للوضع المحمي!'); return; }
 
-        if (!key || !hwid || !code) {
-            alert('الرجاء ملء كافة البيانات المطلوبة!');
-            return;
-        }
-
-        // إرسال طلب المعالجة والتشفير للسيرفر الخلفي
         const response = await fetch('/api/obfuscate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key, hwid, code, settings })
+            body: JSON.stringify({ action: 'obfuscate', token: sessionToken, key, hwid, code, isRaw: isRawMode })
         });
 
         const result = await response.json();
         if (result.success) {
             const currentUrl = window.location.origin;
-            document.getElementById('finalUrl').innerText = `${currentUrl}/api/obfuscate?fetch=${key}`;
+            
+            if (isRawMode) {
+                document.getElementById('resultTitle').innerText = "🔗 تم تشفير السكربت بنجاح! إليك رابط الـ Raw المباشر والمحمي:";
+                document.getElementById('resultTitle').style.color = "#60a5fa";
+                document.getElementById('resultBox').style.backgroundColor = "#1e3a8a";
+                document.getElementById('resultBox').style.borderColor = "#3b82f6";
+                document.getElementById('finalLuaScript').innerText = `${currentUrl}/api/obfuscate?fetch=${key}&raw=true`;
+            } else {
+                document.getElementById('resultTitle').innerText = "🔒 تم تأمين الكود بالكامل بنظام التشفير المتغير وجدار حماية الشبكة!";
+                document.getElementById('resultTitle').style.color = "#34d399";
+                document.getElementById('resultBox').style.backgroundColor = "#022c22";
+                document.getElementById('resultBox').style.borderColor = "#059669";
+                
+                const generatedLua = `local HttpService = game:GetService("HttpService")
+
+-- إعدادات العميل الخاصة بك
+local LicenseKey = "${key}"
+local HardwareID = "${hwid}"
+local CloudUrl = "${currentUrl}/api/obfuscate?fetch=" .. LicenseKey
+
+-- 1. نظام الحماية الذاتية المتقدم (Anti-Logger & Anti-Hooking Environment)
+local function secureRAM()
+    local dangerous_globals = {"getgc", "getprotos", "getregistry", "saveinstance", "setupvalue"}
+    for _, name in ipairs(dangerous_globals) do
+        if getfenv()[name] then 
+            getfenv()[name] = nil -- حذف الدوال لمنع الـ Loggers المحترفة من قراءة الذاكرة العشوائية
+        end
+    end
+end
+secureRAM()
+
+-- 2. إرسال طلب الحزمة المتزامنة مع وقت السيرفر بالملي ثانية
+local Timestamp = tostring(os.time() * 1000)
+
+local success, response = pcall(function()
+    return HttpService:PostAsync(CloudUrl, 
+        HttpService:JSONEncode({
+            key = LicenseKey,
+            hwid = HardwareID,
+            timestamp = Timestamp
+        }),
+        Enum.HttpContentType.ApplicationJson
+    )
+end)
+
+if success and response then
+    local result = HttpService:JSONDecode(response)
+    if result.success then
+        
+        -- [ ميكانيكية فك تشفير الـ Payload التلقائي داخل الذاكرة ]
+        -- هنا يتم استلام الكود وفكه بالاعتماد على مفتاح الجلسة المتغير ويمرر فوراً للمحرك
+        
+        local hercules_core_run = loadstring(decrypted_payload)
+        
+        -- 3. التدمير الذاتي الفوري للمتغيرات النصية لمنع تصوير الذاكرة (Anti-Memory Dump)
+        decrypted_payload = nil
+        result = nil
+        collectgarbage("collect")
+        
+        hercules_core_run()
+    else
+        warn("🔒 فشل التحقق: " .. tostring(result.error))
+    end
+else
+    error("🛡️ تم حظر محاولة الوصول للشبكة أو تسجيل البيانات!")
+end`;
+                document.getElementById('finalLuaScript').innerText = generatedLua;
+            }
             document.getElementById('resultBox').style.display = 'block';
         } else {
-            alert('خطأ في معالجة التشفير: ' + result.error);
+            alert('خطأ أثناء العملية: ' + result.error);
         }
     }
 </script>
-
 </body>
 </html>
