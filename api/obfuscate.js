@@ -1,81 +1,117 @@
 // api/obfuscate.js
 import crypto from 'crypto';
 
-// قاعدة بيانات داخل ذاكرة السيرفر لحفظ السكربتات (يفضل ربطها بـ Supabase لاحقاً للاستمرار الثابت)
-global.herculesCache = global.herculesCache || {};
+global.herculesSecureStorage = global.herculesSecureStorage || {};
+global.herculesSessions = global.herculesSessions || {};
+
+// البيانات المحمية داخل السيرفر (يمكنك تغييرها من هنا بأمان تام)
+const SECURE_USER = "admin";
+const SECURE_PASS = "hercules2026";
+
+const SERVER_MASTER_KEY = crypto.createHash('sha256').update('HERCULES_INTERNAL_SECURE_SALT_2026').digest();
+
+function encryptServerData(text) {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', SERVER_MASTER_KEY, iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const authTag = cipher.getAuthTag().toString('hex');
+    return { encrypted, iv: iv.toString('hex'), tag: authTag };
+}
+
+function decryptServerData(encData) {
+    const decipher = crypto.createDecipheriv('aes-256-gcm', SERVER_MASTER_KEY, Buffer.from(encData.iv, 'hex'));
+    decipher.setAuthTag(Buffer.from(encData.tag, 'hex'));
+    let decrypted = decipher.update(encData.encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+}
 
 export default function handler(req, res) {
     
-    // أولاً: وضع استقبال الكود وتشفيره من لوحة التحكم (POST)
+    // وضع جلب الـ Raw المباشر عبر الـ GET للعبة
+    if (req.method === 'GET' && req.query.fetch) {
+        const key = req.query.fetch;
+        const isRawRequest = req.query.raw === 'true';
+        const secureRecord = global.herculesSecureStorage[key];
+
+        if (!secureRecord) return res.status(404).send('-- License key not found.');
+        const decryptedRecord = JSON.parse(decryptServerData(secureRecord));
+
+        if (isRawRequest && decryptedRecord.isRawScript) {
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            return res.status(200).send(decryptedRecord.rawContent);
+        }
+        return res.status(403).send('-- Unauthorized direct access.');
+    }
+
+    // معالجة طلبات الـ POST (تسجيل الدخول والتشفير)
     if (req.method === 'POST') {
-        const { key, hwid, code, settings } = req.body;
-        if (!key || !hwid || !code) return res.status(400).json({ error: "Missing required fields" });
+        const { action } = req.body;
 
-        // محاكاة منطق الـ Bytecode الخارجي لـ Hercules وتحويل النص إلى تعمية أولية بالخلفية
-        // هذا يحمي الكود البرمجي من أن يظهر كـ Raw حتى في الـ Memory Storage للسيرفر
-        const hmac = crypto.createHmac('sha256', 'hercules_secret_salt').update(code).digest('hex');
-        
-        // بناء الهيكل المحمي للكود المصدري
-        global.herculesCache[key] = {
-            rawContent: code,
-            allowedHwid: hwid,
-            options: settings,
-            signature: hmac
-        };
+        // 1. نظام التحقق الآمن من تسجيل الدخول على السيرفر الخلفي
+        if (action === 'login') {
+            const { user, pass } = req.body;
+            if (user === SECURE_USER && pass === SECURE_PASS) {
+                const token = crypto.randomBytes(32).toString('hex');
+                global.herculesSessions[token] = true; // إنشاء جلسة صالحة للرفع
+                return res.status(200).json({ success: true, token });
+            }
+            return res.status(401).json({ success: false, error: "Invalid credentials" });
+        }
 
-        return res.status(200).json({ success: true });
+        // 2. استقبال وتشفير البيانات (يتطلب توكن جلسة فعال لحمايته من الـ Bypass)
+        if (action === 'obfuscate') {
+            const { token, key, hwid, code, isRaw } = req.body;
+            
+            if (!token || !global.herculesSessions[token]) {
+                return res.status(403).json({ error: "🛡️ Unauthorized Action: Session expired or invalid." });
+            }
+            if (!key || !code) return res.status(400).json({ error: "Data incomplete" });
+
+            global.herculesSecureStorage[key] = encryptServerData(JSON.stringify({
+                rawContent: code,
+                allowedHwid: hwid || null,
+                isRawScript: !!isRaw
+            }));
+
+            return res.status(200).json({ success: true });
+        }
+
+        // 3. معالجة التحقق الموجه من داخل اللعبة (طلب التحقق العادي)
+        if (req.body.timestamp) {
+            const { key, hwid, timestamp } = req.body;
+            const secureRecord = global.herculesSecureStorage[key];
+
+            if (!secureRecord) return res.status(404).json({ error: "License key validation failed." });
+            const decryptedRecord = JSON.parse(decryptServerData(secureRecord));
+
+            if (decryptedRecord.isRawScript) {
+                return res.status(403).json({ error: "This key is configured for RAW execution only." });
+            }
+            if (decryptedRecord.allowedHwid !== hwid) {
+                return res.status(403).json({ error: "🔒 Device unauthorized!" });
+            }
+            if (Math.abs(Date.now() - parseInt(timestamp)) > 10000) {
+                return res.status(403).json({ error: "🔒 Packet signature expired." });
+            }
+
+            const dynamicSecret = key + timestamp + hwid;
+            const bufferContent = Buffer.from(decryptedRecord.rawContent, 'utf8');
+            const keyBuffer = Buffer.from(dynamicSecret, 'utf8');
+            const encryptedPayload = Buffer.alloc(bufferContent.length);
+
+            for (let i = 0; i < bufferContent.length; i++) {
+                encryptedPayload[i] = bufferContent[i] ^ keyBuffer[i % keyBuffer.length];
+            }
+
+            return res.status(200).json({
+                success: true,
+                payload: encryptedPayload.toString('hex')
+            });
+        }
     }
 
-    // ثانياً: وضع جلب وتشغيل السكربت داخل اللعبة (GET / POST المباشر)
-    if (req.method === 'GET' || req.method === 'POST') {
-        const fetchKey = req.query.fetch || (req.body && req.body.key);
-        const requestHwid = req.body && req.body.hwid;
-        const clientTimestamp = req.body && req.body.timestamp;
-
-        // 1. حظر الوصول المباشر للـ Raw تماماً عبر المتصفح
-        if (!requestHwid || !clientTimestamp) {
-            res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            return res.status(403).send(`
-                <div style="font-family:sans-serif; text-align:center; padding:50px; background:#0f172a; color:#ef4444;">
-                    <h2>🛡️ [Hercules Security Alert]</h2>
-                    <p style="color:#94a3b8;">ممنوع الوصول المباشر لرابط الـ Raw. جدار الحماية ضد الـ Loggers نشط تماماً.</p>
-                </div>
-            `);
-        }
-
-        const activeScript = global.herculesCache[fetchKey];
-        if (!activeScript) return res.status(404).json({ error: "License key not found or expired." });
-
-        // 2. مكافحة برامج تسريب الحزم والشبكات (Anti-Replay / Anti-Packet Logger)
-        // إذا كان الفارق الزمني للطلب أكثر من 10 ثوانٍ يتم تدمير الحزمة تلقائياً
-        const serverTime = Date.now();
-        if (Math.abs(serverTime - parseInt(clientTimestamp)) > 10000) {
-            return res.status(403).json({ error: "🔒 Packet capture detected. Request signature expired." });
-        }
-
-        // 3. التحقق الصارم من تطابق بصمة الجهاز (HWID Match Protection)
-        if (activeScript.allowedHwid !== requestHwid) {
-            return res.status(403).json({ error: "🔒 Access Denied: Unauthorized Hardware ID!" });
-        }
-
-        // 4. ميكانيكية التشفير المتغير (Dynamic AES-256-CBC)
-        // يتم توليد مفتاح تشفير يختلف في كل جزء من الملي ثانية معتمداً على الوقت وبصمة العميل
-        const dynamicSecret = fetchKey + clientTimestamp + requestHwid;
-        const encryptionKey = crypto.createHash('sha256').update(dynamicSecret).digest();
-        const iv = crypto.randomBytes(16);
-
-        const cipher = crypto.createCipheriv('aes-256-cbc', encryptionKey, iv);
-        
-        // إدخال السكربت في آلية التحويل وتوليد الـ Payload المشفر
-        let cryptedPayload = cipher.update(activeScript.rawContent, 'utf8', 'hex');
-        cryptedPayload += cipher.final('hex');
-
-        // إرسال البيانات المشفرة مع البيانات الوصفية (Watermark) المقتبسة من مشروعك
-        return res.status(200).json({
-            success: true,
-            watermark: "-- [ Protected via Hercules v1.6 Virtual Machine Cloud ] --",
-            iv: iv.toString('hex'),
-            payload: cryptedPayload
-        });
-    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(403).send('<h2 style="color:red; text-align:center; margin-top:50px;">🛡️ [جدار حماية Hercules السحابي نشط]</h2>');
 }
