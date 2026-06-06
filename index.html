@@ -143,17 +143,15 @@ local LicenseKey = "${key}"
 local HardwareID = "${hwid}"
 local CloudUrl = "${currentUrl}/api/obfuscate?fetch=" .. LicenseKey
 
-
 local function secureRAM()
     local dangerous_globals = {"getgc", "getprotos", "getregistry", "saveinstance", "setupvalue"}
     for _, name in ipairs(dangerous_globals) do
         if getfenv()[name] then 
-            getfenv()[name] = nil 
+            getfenv()[name] = nil
         end
     end
 end
 secureRAM()
-
 
 local Timestamp = tostring(os.time() * 1000)
 
@@ -172,19 +170,18 @@ if success and response then
     local result = HttpService:JSONDecode(response)
     if result.success then
         
-        
-        
         local hercules_core_run = loadstring(decrypted_payload)
         
-       
         decrypted_payload = nil
         result = nil
         collectgarbage("collect")
         
         hercules_core_run()
     else
+        warn("🔒 فشل التحقق: " .. tostring(result.error))
     end
 else
+    error("🛡️ تم حظر محاولة الوصول للشبكة أو تسجيل البيانات!")
 end`;
                 document.getElementById('finalLuaScript').innerText = generatedLua;
             }
